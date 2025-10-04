@@ -29,7 +29,31 @@ export async function rank_and_dedup({ cards, intent, take = 9 }: any) {
     'noelleeming.co.nz': 2 
   };
   
-  const scored = cards.map((c: any) => {
+  // First, filter out invalid products
+  const validCards = cards.filter((c: any) => {
+    const title = (c.title || '').toLowerCase();
+    const url = (c.url || '').toLowerCase();
+    
+    // Filter out invalid products
+    if (
+      title === 'product' ||
+      title === 'just a moment...' ||
+      title.includes('search results for') ||
+      title.includes('cart') ||
+      title.includes('minicart') ||
+      url.includes('/cart/') ||
+      url.includes('/search/update') ||
+      !c.title ||
+      !c.url ||
+      c.title.length < 3
+    ) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  const scored = validCards.map((c: any) => {
     const d = (c.domain || '').toLowerCase();
     const title = (c.title || '').toLowerCase();
     
