@@ -139,34 +139,52 @@ export default function Composer({ initialQuery = '' }: ComposerProps) {
                     
                     {/* Show TWG Products */}
                     {message.products && message.products.length > 0 && (
+                      <>
+                        {console.log('Rendering products:', message.products)}
                       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
-                        {message.products.slice(0, 3).map((product, i) => (
+                        {message.products.slice(0, 6).map((product, i) => (
                           <a
                             key={i}
-                            href={product.redirect_url}
+                            href={product.redirect_url || product.url}
                             className="block rounded-lg border border-gray-200 bg-white hover:shadow-md transition-all"
+                            target="_blank"
+                            rel="noopener noreferrer"
                           >
-                            {product.image && (
-                              <div className="relative aspect-[5/4] w-full overflow-hidden rounded-t-lg bg-gray-100">
+                            <div className="relative aspect-[5/4] w-full overflow-hidden rounded-t-lg bg-gray-100">
+                              {product.image ? (
                                 <img 
                                   src={product.image} 
-                                  alt="Product" 
-                                  className="w-full h-full object-contain"
+                                  alt={product.title || 'Product'} 
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                  }}
                                 />
+                              ) : null}
+                              <div className={`absolute inset-0 flex items-center justify-center bg-gray-100 ${product.image ? 'hidden' : ''}`}>
+                                <span className="text-gray-400 text-sm">No image</span>
                               </div>
-                            )}
+                            </div>
                             <div className="p-3">
-                              <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1">
+                              <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
                                 {product.title || 'View product'}
                               </h3>
-                              <div className="flex items-center justify-between text-xs text-gray-500">
-                                <span className="font-medium">{product.merchant}</span>
-                                <span className="px-2 py-1 rounded-sm text-xs font-medium bg-red-100 text-red-600">TWG</span>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-gray-500 font-medium">{product.merchant}</span>
+                                <span className="text-xs font-bold text-green-600">${product.price}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="px-2 py-1 rounded-sm text-xs font-medium bg-red-100 text-red-600">
+                                  {product.label || 'TWG'}
+                                </span>
+                                <span className="text-xs text-gray-400">Click to view</span>
                               </div>
                             </div>
                           </a>
                         ))}
                       </div>
+                      </>
                     )}
                   </div>
                 </div>
