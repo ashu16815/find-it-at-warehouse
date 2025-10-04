@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Composer from '../../components/Chat/Composer.tsx';
+import Composer from '../../components/Chat/Composer';
 
 function ChatPageContent() {
   const searchParams = useSearchParams();
