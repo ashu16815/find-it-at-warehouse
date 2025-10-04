@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --tw-brand: #D32F2F;
+  --tw-brand-dark: #B71C1C;
+  --tw-ink: #111111;
+  --tw-ink-muted: #565B62;
+  --tw-bg: #FFFFFF;
+  --tw-bg-alt: #F7F7F8;
+  --tw-border: #E6E7EA;
+  --tw-accent: #1E88E5;
+  --tw-success: #2E7D32;
+  --tw-warning: #ED6C02;
+  --tw-danger: #C62828;
+  
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tw-bg: #0C0D0F;
+    --tw-bg-alt: #111216;
+    --tw-ink: #F2F3F5;
+    --tw-ink-muted: #9CA3AF;
+    --tw-border: #23242A;
+    --tw-brand: #EF5350;
+    
+    color-scheme: dark;
+  }
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial;
+  color: var(--tw-ink);
+  background: var(--tw-bg);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Focus styles for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--tw-brand);
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--tw-bg-alt);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--tw-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tw-ink-muted);
+}

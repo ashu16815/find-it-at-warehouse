@@ -1,0 +1,30 @@
+{
+  "name": "find-it-at-warehouse",
+  "private": true,
+  "scripts": {
+    "dev": "next dev apps/web",
+    "build": "next build apps/web",
+    "start": "next start apps/web"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.3",
+    "@tailwindcss/line-clamp": "^0.4.4",
+    "cheerio": "1.0.0-rc.12",
+    "dotenv": "^17.2.3",
+    "next": "14.2.7",
+    "prisma": "^6.16.3",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "recharts": "^3.2.1",
+    "uuid": "9.0.1",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "24.6.2",
+    "@types/react": "19.2.0",
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.41",
+    "tailwindcss": "3.4.10",
+    "typescript": "5.5.4"
+  }
+}
