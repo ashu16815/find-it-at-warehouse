@@ -94,61 +94,106 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        // Handle tool calls
-        if (aiResponse.output.some((output: any) => output.type === 'function_call')) {
-          console.log('Processing tool calls...');
-          
-          for (const output of aiResponse.output) {
-            if (output.type === 'function_call' && output.status === 'completed') {
-              const toolName = output.name;
-              const toolParams = JSON.parse(output.arguments || '{}');
-              
-              console.log(`Executing tool: ${toolName}`, toolParams);
-              
-              if (tools[toolName as keyof typeof tools]) {
-                try {
-                  const result = await tools[toolName as keyof typeof tools](toolParams);
-                  console.log(`Tool ${toolName} result:`, result);
-                  
-                  // If this is the final decorate_redirects call, extract products
-                  if (toolName === 'decorate_redirects' && 'cards' in result) {
-                    products = (result as any).cards;
+          // Handle tool calls with automatic chaining
+          if (aiResponse.output.some((output: any) => output.type === 'function_call')) {
+            console.log('Processing tool calls with automatic chaining...');
+            
+            let searchUrls: string[] = [];
+            let productCards: any[] = [];
+            let rankedCards: any[] = [];
+            
+            for (const output of aiResponse.output) {
+              if (output.type === 'function_call' && output.status === 'completed') {
+                const toolName = output.name;
+                const toolParams = JSON.parse(output.arguments || '{}');
+                
+                console.log(`Executing tool: ${toolName}`, toolParams);
+                
+                if (tools[toolName as keyof typeof tools]) {
+                  try {
+                    const result = await tools[toolName as keyof typeof tools](toolParams);
+                    console.log(`Tool ${toolName} result:`, result);
+                    
+                    // Store results for chaining
+                    if (toolName === 'site_search' && 'urls' in result) {
+                      searchUrls = (result as any).urls;
+                      console.log(`Found ${searchUrls.length} search URLs, continuing with fetch_product_cards...`);
+                      
+                      // Automatically call fetch_product_cards
+                      try {
+                        const fetchResult = await tools.fetch_product_cards({ urls: searchUrls, max: 18 });
+                        console.log('fetch_product_cards result:', fetchResult);
+                        productCards = (fetchResult as any).cards || [];
+                        
+                        if (productCards.length > 0) {
+                          console.log(`Found ${productCards.length} product cards, continuing with rank_and_dedup...`);
+                          
+                          // Automatically call rank_and_dedup
+                          try {
+                            const rankResult = await tools.rank_and_dedup({ cards: productCards, intent, take: 9 });
+                            console.log('rank_and_dedup result:', rankResult);
+                            rankedCards = (rankResult as any).cards || [];
+                            
+                            if (rankedCards.length > 0) {
+                              console.log(`Ranked ${rankedCards.length} cards, continuing with decorate_redirects...`);
+                              
+                              // Automatically call decorate_redirects
+                              try {
+                                const decorateResult = await tools.decorate_redirects({ cards: rankedCards });
+                                console.log('decorate_redirects result:', decorateResult);
+                                products = (decorateResult as any).cards || [];
+                                console.log(`Final products: ${products.length} items`);
+                              } catch (decorateError) {
+                                console.error('decorate_redirects error:', decorateError);
+                              }
+                            }
+                          } catch (rankError) {
+                            console.error('rank_and_dedup error:', rankError);
+                          }
+                        }
+                      } catch (fetchError) {
+                        console.error('fetch_product_cards error:', fetchError);
+                      }
+                    }
+                  } catch (toolError) {
+                    console.error(`Tool ${toolName} error:`, toolError);
                   }
-                } catch (toolError) {
-                  console.error(`Tool ${toolName} error:`, toolError);
                 }
               }
             }
           }
-        }
       }
       
-      // Check if the AI is asking clarifying questions (no products needed)
-      const isClarifyingQuestion = message.includes('?') && (
-        message.toLowerCase().includes('budget') ||
-        message.toLowerCase().includes('what') ||
-        message.toLowerCase().includes('which') ||
-        message.toLowerCase().includes('how') ||
-        message.toLowerCase().includes('prefer') ||
-        message.toLowerCase().includes('size') ||
-        message.toLowerCase().includes('brand') ||
-        message.toLowerCase().includes('indoor') ||
-        message.toLowerCase().includes('outdoor') ||
-        message.toLowerCase().includes('wired') ||
-        message.toLowerCase().includes('wireless') ||
-        message.toLowerCase().includes('features') ||
-        message.toLowerCase().includes('answer')
-      );
-      
-      if (isClarifyingQuestion) {
-        console.log('AI is asking clarifying questions, not showing products');
-        return NextResponse.json({
-          message,
-          products: [], // No products when asking questions
-          intent,
-          note: 'Azure OpenAI asking clarifying questions'
-        });
-      }
+          // Check if the AI is asking clarifying questions (no products needed)
+          const isClarifyingQuestion = message.includes('?') && (
+            message.toLowerCase().includes('budget') ||
+            message.toLowerCase().includes('what') ||
+            message.toLowerCase().includes('which') ||
+            message.toLowerCase().includes('how') ||
+            message.toLowerCase().includes('prefer') ||
+            message.toLowerCase().includes('size') ||
+            message.toLowerCase().includes('brand') ||
+            message.toLowerCase().includes('indoor') ||
+            message.toLowerCase().includes('outdoor') ||
+            message.toLowerCase().includes('wired') ||
+            message.toLowerCase().includes('wireless') ||
+            message.toLowerCase().includes('features') ||
+            message.toLowerCase().includes('answer') ||
+            message.toLowerCase().includes('range') ||
+            message.toLowerCase().includes('looking for') ||
+            message.toLowerCase().includes('type of')
+          );
+          
+          if (isClarifyingQuestion) {
+            console.log('AI is asking clarifying questions, not showing products');
+            return NextResponse.json({
+              message,
+              products: [], // No products when asking questions
+              intent,
+              note: 'Azure OpenAI asking clarifying questions',
+              isClarifying: true
+            });
+          }
       
       // If no products were found through tools, provide fallback
       if (products.length === 0) {

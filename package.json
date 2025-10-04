@@ -4,7 +4,9 @@
   "scripts": {
     "dev": "next dev apps/web",
     "build": "next build apps/web",
-    "start": "next start apps/web"
+    "start": "next start apps/web",
+    "vercel-build": "cd apps/web && prisma generate && next build",
+    "postinstall": "cd apps/web && prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.16.3",
