@@ -61,7 +61,7 @@ export default function Composer({ initialQuery = '' }: ComposerProps) {
     }
     
     // Add user message to local state
-    const newUserMessage = {
+    const newUserMessage: Message = {
       id: Date.now(),
       type: 'user',
       content: userMessage,
@@ -87,7 +87,7 @@ export default function Composer({ initialQuery = '' }: ComposerProps) {
       const data = await res.json();
       
       // Add AI response to local state
-      const newAIMessage = {
+      const newAIMessage: Message = {
         id: Date.now() + 1,
         type: 'ai',
         content: data.message || 'I found some products for you!',
@@ -98,7 +98,7 @@ export default function Composer({ initialQuery = '' }: ComposerProps) {
     } catch (err) {
       console.error('Error:', err);
       // Add error message to local state
-      const errorMessage = {
+      const errorMessage: Message = {
         id: Date.now() + 1,
         type: 'ai',
         content: 'Sorry, I encountered an error. Please try again.',
