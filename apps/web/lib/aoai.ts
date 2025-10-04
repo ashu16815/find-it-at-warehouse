@@ -4,7 +4,7 @@ export async function chatWithTools(query: string, intent: any, conversationHist
   const sys = `You are TWG Retail Shopping Consultant. You MUST search for products immediately when users ask for them.
 
 CRITICAL RULES:
-1. When user asks for ANY product (laptop, TV, camera, etc.) - IMMEDIATELY call site_search tool with their query
+1. When user asks for ANY product (laptop, TV, camera, etc.) - IMMEDIATELY call site_search tool with their EXACT query
 2. NEVER ask clarifying questions for specific product requests like "laptop under $600" or "TV recommendations"
 3. ALWAYS use the complete tool chain: site_search → fetch_product_cards → rank_and_dedup → decorate_redirects
 4. Return 3-6 product tiles with title, image, price, merchant, and tracked redirect URL
@@ -13,11 +13,13 @@ CRITICAL RULES:
 7. Never fabricate prices/stock - only use data from tools
 8. Label non-TWG products as "External"
 
-EXAMPLES:
-- "laptop under $600" → IMMEDIATELY search for laptops
-- "Samsung TV" → IMMEDIATELY search for Samsung TVs  
-- "camera recommendations" → IMMEDIATELY search for cameras
-- "help me" → Ask what they need help with
+TOOL USAGE EXAMPLES:
+- User: "laptop under $600" → Call site_search with query: "laptop under $600"
+- User: "Samsung TV" → Call site_search with query: "Samsung TV"
+- User: "camera recommendations" → Call site_search with query: "camera recommendations"
+- User: "help me" → Ask what they need help with
+
+IMPORTANT: Always pass the user's EXACT query to the site_search tool. Do not modify or interpret it.
 
 SEARCH FIRST, ASK QUESTIONS ONLY IF ABSOLUTELY NECESSARY.`;
 
@@ -26,19 +28,32 @@ SEARCH FIRST, ASK QUESTIONS ONLY IF ABSOLUTELY NECESSARY.`;
     input: [
       { role: 'system', content: sys },
       ...conversationHistory,
-      { role: 'user', content: JSON.stringify({ query, intent }) }
+      { role: 'user', content: `Search for: ${query}` }
     ],
-    max_output_tokens: 900,
+    max_output_tokens: 2000,
     tools: [
       {
         type: 'function',
         name: 'site_search',
-        input_schema: {
+        description: 'Search for products on The Warehouse Group websites',
+        parameters: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: 'The search query to find products' },
-            domains_priority: { type: 'array', items: { type: 'string' }, description: 'Priority domains to search' },
-            limit_per_domain: { type: 'number', description: 'Number of results per domain' }
+            query: { 
+              type: 'string', 
+              description: 'The search query to find products (e.g., "laptop under $600", "Samsung TV", "security camera")' 
+            },
+            domains_priority: { 
+              type: 'array', 
+              items: { type: 'string' }, 
+              description: 'Priority domains to search',
+              default: ['thewarehouse.co.nz', 'warehousestationery.co.nz', 'noelleeming.co.nz']
+            },
+            limit_per_domain: { 
+              type: 'number', 
+              description: 'Number of results per domain',
+              default: 8
+            }
           },
           required: ['query']
         }
@@ -46,11 +61,20 @@ SEARCH FIRST, ASK QUESTIONS ONLY IF ABSOLUTELY NECESSARY.`;
       {
         type: 'function',
         name: 'fetch_product_cards',
-        input_schema: {
+        description: 'Extract product information from URLs',
+        parameters: {
           type: 'object',
           properties: {
-            urls: { type: 'array', items: { type: 'string' }, description: 'URLs to extract product information from' },
-            max: { type: 'number', description: 'Maximum number of products to fetch' }
+            urls: { 
+              type: 'array', 
+              items: { type: 'string' }, 
+              description: 'URLs to extract product information from' 
+            },
+            max: { 
+              type: 'number', 
+              description: 'Maximum number of products to fetch',
+              default: 18
+            }
           },
           required: ['urls']
         }
@@ -58,12 +82,24 @@ SEARCH FIRST, ASK QUESTIONS ONLY IF ABSOLUTELY NECESSARY.`;
       {
         type: 'function',
         name: 'rank_and_dedup',
-        input_schema: {
+        description: 'Rank and deduplicate product cards',
+        parameters: {
           type: 'object',
           properties: {
-            cards: { type: 'array', items: { type: 'object' }, description: 'Product cards to rank and deduplicate' },
-            intent: { type: 'object', description: 'User intent for ranking' },
-            take: { type: 'number', description: 'Number of top results to return' }
+            cards: { 
+              type: 'array', 
+              items: { type: 'object' }, 
+              description: 'Product cards to rank and deduplicate' 
+            },
+            intent: { 
+              type: 'object', 
+              description: 'User intent for ranking' 
+            },
+            take: { 
+              type: 'number', 
+              description: 'Number of top results to return',
+              default: 9
+            }
           },
           required: ['cards']
         }
@@ -71,10 +107,15 @@ SEARCH FIRST, ASK QUESTIONS ONLY IF ABSOLUTELY NECESSARY.`;
       {
         type: 'function',
         name: 'decorate_redirects',
-        input_schema: {
+        description: 'Add tracked redirect URLs to product cards',
+        parameters: {
           type: 'object',
           properties: {
-            cards: { type: 'array', items: { type: 'object' }, description: 'Product cards to add redirect URLs to' }
+            cards: { 
+              type: 'array', 
+              items: { type: 'object' }, 
+              description: 'Product cards to add redirect URLs to' 
+            }
           },
           required: ['cards']
         }
@@ -82,11 +123,18 @@ SEARCH FIRST, ASK QUESTIONS ONLY IF ABSOLUTELY NECESSARY.`;
       {
         type: 'function',
         name: 'log_event',
-        input_schema: {
+        description: 'Log events for analytics',
+        parameters: {
           type: 'object',
           properties: {
-            type: { type: 'string', description: 'Event type to log' },
-            payload: { type: 'object', description: 'Event data to log' }
+            type: { 
+              type: 'string', 
+              description: 'Event type to log' 
+            },
+            payload: { 
+              type: 'object', 
+              description: 'Event data to log' 
+            }
           },
           required: ['type', 'payload']
         }

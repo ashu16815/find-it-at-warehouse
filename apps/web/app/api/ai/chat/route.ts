@@ -44,6 +44,10 @@ export async function POST(req: NextRequest) {
     // Use Azure OpenAI with tool-driven search
     try {
       console.log('Calling Azure OpenAI...');
+      console.log('Query:', query);
+      console.log('Intent:', intent);
+      console.log('Conversation History:', conversationHistory);
+      
       const aiResponse = await chatWithTools(query, intent, conversationHistory);
       console.log('Azure OpenAI Response:', JSON.stringify(aiResponse, null, 2));
       

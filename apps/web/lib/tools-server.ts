@@ -5,32 +5,15 @@ import { decorate } from './redirects';
 export async function site_search({ query, domains_priority = ['thewarehouse.co.nz', 'warehousestationery.co.nz', 'noelleeming.co.nz'], limit_per_domain = 8 }: any) {
   const urls: string[] = [];
   
-  // If Azure Cognitive Search is not available, generate sample URLs
-  if (!process.env.AZURE_SEARCH_ENDPOINT || !process.env.AZURE_SEARCH_KEY) {
-    console.log('Azure Cognitive Search not available, generating sample URLs');
-    for (const d of domains_priority) {
-      for (let i = 0; i < limit_per_domain; i++) {
-        urls.push(`https://${d}/search?q=${encodeURIComponent(query)}&page=${i + 1}`);
-      }
-    }
-    return { urls };
-  }
-  
-  try {
-    for (const d of domains_priority) {
-      const r = await webSearch(`${query} site:${d}`, limit_per_domain);
-      urls.push(...r.map((x: any) => x.url));
-    }
-  } catch (error) {
-    console.log('Web search failed, generating sample URLs:', error);
-    // Fallback to sample URLs
-    for (const d of domains_priority) {
-      for (let i = 0; i < limit_per_domain; i++) {
-        urls.push(`https://${d}/search?q=${encodeURIComponent(query)}&page=${i + 1}`);
-      }
+  // Generate proper TWG search URLs (no site: operators needed)
+  console.log('Generating TWG search URLs for query:', query);
+  for (const d of domains_priority) {
+    for (let i = 0; i < limit_per_domain; i++) {
+      urls.push(`https://${d}/search?q=${encodeURIComponent(query)}&page=${i + 1}`);
     }
   }
   
+  console.log('Generated URLs:', urls.slice(0, 3), '... (total:', urls.length, ')');
   return { urls };
 }
 
