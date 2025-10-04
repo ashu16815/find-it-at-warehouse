@@ -1,8 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 
 export default function Home() {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearch = (query: string) => {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery) {
+      window.location.href = `/chat?q=${encodeURIComponent(trimmedQuery)}`;
+    } else {
+      window.location.href = '/chat';
+    }
+  };
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6">
       {/* Hero Section - Centered like Google */}
@@ -17,36 +29,31 @@ export default function Home() {
         {/* Main Chat Input - Google-style */}
         <div className="mb-8">
           <div className="relative max-w-2xl mx-auto">
-            <div className="flex items-center border border-gray-300 rounded-full px-6 py-4 shadow-sm hover:shadow-md transition-shadow bg-white">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleSearch(searchQuery);
+            }} className="flex items-center border border-gray-300 rounded-full px-6 py-4 shadow-sm hover:shadow-md transition-shadow bg-white">
               <span className="text-gray-400 mr-3">💬</span>
               <input
                 type="text"
                 placeholder="Ask anything: laptop under $600, TV recommendations, office setup..."
                 className="flex-1 outline-none text-lg bg-transparent placeholder:text-gray-400 text-gray-900"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    const query = e.currentTarget.value.trim();
-                    if (query) {
-                      window.location.href = `/chat?q=${encodeURIComponent(query)}`;
-                    }
+                    e.preventDefault();
+                    handleSearch(searchQuery);
                   }
                 }}
               />
               <button
-                onClick={() => {
-                  const input = document.querySelector('input');
-                  const query = input?.value.trim();
-                  if (query) {
-                    window.location.href = `/chat?q=${encodeURIComponent(query)}`;
-                  } else {
-                    window.location.href = '/chat';
-                  }
-                }}
+                type="submit"
                 className="ml-3 px-6 py-2 bg-[#D32F2F] text-white rounded-full hover:bg-[#B71C1C] transition-colors font-medium"
               >
                 Ask AI
               </button>
-            </div>
+            </form>
           </div>
           
           {/* Quick Suggestions */}
@@ -59,7 +66,7 @@ export default function Home() {
             ].map((suggestion, i) => (
               <button
                 key={i}
-                onClick={() => window.location.href = `/chat?q=${encodeURIComponent(suggestion)}`}
+                onClick={() => handleSearch(suggestion)}
                 className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-full transition-colors text-gray-700"
               >
                 {suggestion}

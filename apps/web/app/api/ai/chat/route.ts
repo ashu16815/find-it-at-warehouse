@@ -3,7 +3,8 @@ import { chatWithTools } from '../../../../lib/aoai';
 import { parseIntent } from '../../../../lib/intent';
 import { site_search, fetch_product_cards, rank_and_dedup, decorate_redirects, log_event } from '../../../../lib/tools-server';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // Tool implementations
 const tools = {
@@ -15,9 +16,9 @@ const tools = {
 };
 
 export async function POST(req: NextRequest) {
-  const { query, conversationHistory = [] } = await req.json();
-  
   try {
+    const { query, conversationHistory = [] } = await req.json();
+    
     // Parse user intent
     const intent = await parseIntent(query);
     
@@ -37,12 +38,7 @@ export async function POST(req: NextRequest) {
     
     if (!hasAzureConfig) {
       console.log('Using fallback mode - Azure OpenAI not configured');
-      return NextResponse.json({
-        message: 'AI consultation unavailable - Azure OpenAI not configured',
-        products: [],
-        intent,
-        note: 'Please configure Azure OpenAI environment variables'
-      });
+      return await generateFallbackProducts(query, intent);
     }
     
     // Use Azure OpenAI with tool-driven search
@@ -54,6 +50,20 @@ export async function POST(req: NextRequest) {
       // Process the response
       let products: any[] = [];
       let message = 'I found some products for you!';
+      
+      // Check if Azure OpenAI returned products directly
+      if (aiResponse.products && aiResponse.products.length > 0) {
+        console.log('Azure OpenAI returned products directly:', aiResponse.products.length);
+        products = aiResponse.products;
+        message = aiResponse.message || message;
+        
+        return NextResponse.json({
+          message,
+          products: products.slice(0, 6), // Limit to 6 products
+          intent,
+          note: 'Azure OpenAI with tool-driven search'
+        });
+      }
       
       // GPT-5-mini uses different response format
       if (aiResponse.output && aiResponse.output.length > 0) {
@@ -97,8 +107,8 @@ export async function POST(req: NextRequest) {
                   console.log(`Tool ${toolName} result:`, result);
                   
                   // If this is the final decorate_redirects call, extract products
-                  if (toolName === 'decorate_redirects' && result.cards) {
-                    products = result.cards;
+                  if (toolName === 'decorate_redirects' && 'cards' in result) {
+                    products = (result as any).cards;
                   }
                 } catch (toolError) {
                   console.error(`Tool ${toolName} error:`, toolError);

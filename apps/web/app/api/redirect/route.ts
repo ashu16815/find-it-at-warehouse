@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -9,16 +9,14 @@ export async function GET(req: NextRequest) {
   let meta: any = {};
   try { meta = JSON.parse(decodeURIComponent(metaRaw)); } catch {}
   
-  // Fire-and-forget logging via background (Edge doesn't allow blocking DB writes easily; keep simple here)
-  fetch(`${url.origin}/api/redirect/log`, { 
-    method: 'POST', 
-    body: JSON.stringify({ 
-      target, 
-      meta, 
-      ua: req.headers.get('user-agent') || '', 
-      ref: req.headers.get('referer') || '' 
-    }) 
-  }).catch(()=>{});
+  // Log the redirect event
+  console.log('Redirect Event:', {
+    target,
+    meta,
+    userAgent: req.headers.get('user-agent') || '',
+    referrer: req.headers.get('referer') || '',
+    timestamp: new Date().toISOString()
+  });
   
   return new Response(null, { status: 302, headers: { Location: target } });
 }

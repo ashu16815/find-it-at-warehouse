@@ -8,7 +8,6 @@ export function decorate(card: any) {
     domain: card.domain, 
     label: card.label 
   }));
-  
   return { 
     ...card, 
     redirect_url: `/api/redirect?u=${encodeURIComponent(finalUrl)}&meta=${meta}` 

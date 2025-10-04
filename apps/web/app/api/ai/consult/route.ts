@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { consult } from '../../../lib/ai';
+import { consult } from '../../../../lib/ai';
 
-export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();

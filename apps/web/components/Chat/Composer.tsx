@@ -1,11 +1,23 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 
-export default function Composer({ initialQuery = '' }) {
+interface Message {
+  id: number;
+  type: 'user' | 'ai';
+  content: string;
+  products?: any[];
+  timestamp: Date;
+}
+
+interface ComposerProps {
+  initialQuery?: string;
+}
+
+export default function Composer({ initialQuery = '' }: ComposerProps) {
   const [text, setText] = useState(initialQuery);
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const inputRef = useRef(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Initialize messages state
   useEffect(() => {
@@ -25,7 +37,7 @@ export default function Composer({ initialQuery = '' }) {
     console.log('Text state changed:', text);
   }, [text]);
 
-  async function onSubmit(e) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     console.log('Form submitted!', { text, loading });
     
@@ -64,14 +76,14 @@ export default function Composer({ initialQuery = '' }) {
         content: msg.type === 'user' ? msg.content : msg.content
       }));
 
-      const res = await fetch('/api/ai/chat', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          query: userMessage,
-          conversationHistory: conversationHistory
-        }) 
-      });
+          const res = await fetch('/api/ai/chat', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              query: userMessage,
+              conversationHistory: conversationHistory
+            }) 
+          });
       const data = await res.json();
       
       // Add AI response to local state

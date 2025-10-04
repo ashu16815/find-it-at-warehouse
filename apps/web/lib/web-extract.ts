@@ -1,8 +1,8 @@
 import * as cheerio from 'cheerio';
 
-function abs(src?: string, base?: string) { 
+function abs(s?: string, b?: string) { 
   try { 
-    return src ? new URL(src, base).toString() : undefined; 
+    return s ? new URL(s, b).toString() : undefined; 
   } catch { 
     return undefined; 
   } 
@@ -14,16 +14,13 @@ export async function extractCards(urls: string[]) {
   for (const url of urls) {
     try {
       const html = await fetch(url, { 
-        headers: { 
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' 
-        } 
+        headers: { 'User-Agent': 'TWG-FindIt/1.0' } 
       }).then(r => r.text());
       
       const $ = cheerio.load(html);
       
       const title = $('meta[property="og:title"]').attr('content') || 
                    $('title').text() || 
-                   $('h1').first().text() || 
                    'View product';
       
       const image = abs(
@@ -33,39 +30,24 @@ export async function extractCards(urls: string[]) {
       );
       
       const priceTxt = $('[data-test="price"], [itemprop="price"]').first().text() || 
-                      $('meta[property="product:price:amount"]').attr('content') || 
-                      $('.price').first().text() || 
-                      '';
+                      $('meta[property="product:price:amount"]').attr('content') || '';
       
       const price = priceTxt ? Number(priceTxt.replace(/[^0-9.]/g, '')) : undefined;
+      
       const domain = new URL(url).hostname.replace(/^www\./, '');
       
-      cards.push({ 
-        title, 
-        image, 
-        price, 
-        url, 
-        domain, 
-        merchant: merchantFrom(domain), 
-        label: isTWG(domain) ? 'TWG' : 'External' 
-      });
-    } catch (err) {
-      console.log(`Error extracting card from ${url}:`, err);
+      const merchant = /thewarehouse\.co\.nz$/.test(domain) ? 'The Warehouse' : 
+                      /warehousestationery\.co\.nz$/.test(domain) ? 'Warehouse Stationery' : 
+                      /noelleeming\.co\.nz$/.test(domain) ? 'Noel Leeming' : 
+                      domain;
+      
+      const label = (/thewarehouse|warehousestationery|noelleeming/.test(domain)) ? 'TWG' : 'External';
+      
+      cards.push({ title, image, price, url, domain, merchant, label });
+    } catch (error) {
+      console.error(`Error extracting from ${url}:`, error);
     }
   }
   
   return cards;
-}
-
-function isTWG(domain: string) { 
-  return /(^|\.)thewarehouse\.co\.nz$/.test(domain) || 
-         /(^|\.)warehousestationery\.co\.nz$/.test(domain) || 
-         /(^|\.)noelleeming\.co\.nz$/.test(domain); 
-}
-
-function merchantFrom(domain: string) {
-  if (/thewarehouse\.co\.nz$/.test(domain)) return 'The Warehouse';
-  if (/warehousestationery\.co\.nz$/.test(domain)) return 'Warehouse Stationery';
-  if (/noelleeming\.co\.nz$/.test(domain)) return 'Noel Leeming';
-  return domain;
 }

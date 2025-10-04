@@ -26,7 +26,7 @@ export default function MessageList({ messages = [], onNewMessage }) {
   // Expose addMessage function to parent
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.addChatMessage = addMessage;
+      (window as any).addChatMessage = addMessage;
       console.log('Exposed addChatMessage function to window');
     }
   }, [addMessage]);

@@ -1,134 +1,153 @@
+import { site_search, fetch_product_cards, rank_and_dedup, decorate_redirects, log_event } from './tools-server';
+
 export async function chatWithTools(query: string, intent: any, conversationHistory: any[] = []) {
-  const sys = `You are TWG Retail Shopping Consultant. Your role is to:
+  const sys = `You are TWG Retail Shopping Consultant. You MUST search for products immediately when users ask for them.
 
-1. ALWAYS maintain conversation context - if the user gives a short answer like "outdoor" or "wireless", understand it as a response to your previous questions
-2. Ask clarifying questions when the user's request is vague or incomplete
-3. Understand the user's specific needs, budget, and preferences
-4. Search TWG products first (The Warehouse → Warehouse Stationery → Noel Leeming)
-5. Provide personalized recommendations based on their answers
-6. Never fabricate prices or stock information
+CRITICAL RULES:
+1. When user asks for ANY product (laptop, TV, camera, etc.) - IMMEDIATELY call site_search tool with their query
+2. NEVER ask clarifying questions for specific product requests like "laptop under $600" or "TV recommendations"
+3. ALWAYS use the complete tool chain: site_search → fetch_product_cards → rank_and_dedup → decorate_redirects
+4. Return 3-6 product tiles with title, image, price, merchant, and tracked redirect URL
+5. Only ask questions if the query is completely vague like just "help" or "what should I buy"
+6. For ANY product request with details (budget, brand, type) - SEARCH IMMEDIATELY
+7. Never fabricate prices/stock - only use data from tools
+8. Label non-TWG products as "External"
 
-CONVERSATION CONTEXT RULES:
-- If user gives a short answer (1-2 words), treat it as a response to your most recent question
-- Build on previous answers to ask follow-up questions
-- Don't restart the conversation unless the user explicitly changes topics
-- Keep track of what information you've already gathered
+EXAMPLES:
+- "laptop under $600" → IMMEDIATELY search for laptops
+- "Samsung TV" → IMMEDIATELY search for Samsung TVs  
+- "camera recommendations" → IMMEDIATELY search for cameras
+- "help me" → Ask what they need help with
 
-Examples of clarifying questions:
-- "What's your budget range for this item?"
-- "What specific features are most important to you?"
-- "Is this for personal use or business?"
-- "Do you have any brand preferences?"
-- "What size/color are you looking for?"
-- "Are you looking for indoor or outdoor security cameras?"
-- "Do you need wireless or wired cameras?"
-
-When you have enough information, use these tools in order:
-1. site_search to find product URLs from TWG sites first
-2. fetch_product_cards to get product details from those URLs
-3. rank_and_dedup to prioritize TWG brands and remove duplicates
-4. decorate_redirects to create tracked redirect URLs
-
-Be conversational, helpful, and always prioritize The Warehouse Group brands.`;
-  
-  // Build conversation history
-  const messages = [
-    { role: 'system', content: sys },
-    ...conversationHistory,
-    { role: 'user', content: JSON.stringify({ query, intent }) }
-  ];
+SEARCH FIRST, ASK QUESTIONS ONLY IF ABSOLUTELY NECESSARY.`;
 
   const body = {
     model: process.env.AOAI_GPT5_DEPLOYMENT,
-    input: messages,
-    max_output_tokens: 1500,
+    input: [
+      { role: 'system', content: sys },
+      ...conversationHistory,
+      { role: 'user', content: JSON.stringify({ query, intent }) }
+    ],
+    max_output_tokens: 900,
     tools: [
-      { 
-        type: 'function', 
-        name: 'site_search', 
-        input_schema: { 
-          type: 'object', 
-          properties: { 
-            query: { type: 'string' }, 
-            domains_priority: { type: 'array', items: { type: 'string' } }, 
-            limit_per_domain: { type: 'number' } 
-          }, 
-          required: ['query','domains_priority'] 
-        } 
+      {
+        type: 'function',
+        name: 'site_search',
+        input_schema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'The search query to find products' },
+            domains_priority: { type: 'array', items: { type: 'string' }, description: 'Priority domains to search' },
+            limit_per_domain: { type: 'number', description: 'Number of results per domain' }
+          },
+          required: ['query']
+        }
       },
-      { 
-        type: 'function', 
-        name: 'fetch_product_cards', 
-        input_schema: { 
-          type: 'object', 
-          properties: { 
-            urls: { type: 'array', items: { type: 'string' } }, 
-            max: { type: 'number' } 
-          }, 
-          required: ['urls'] 
-        } 
+      {
+        type: 'function',
+        name: 'fetch_product_cards',
+        input_schema: {
+          type: 'object',
+          properties: {
+            urls: { type: 'array', items: { type: 'string' }, description: 'URLs to extract product information from' },
+            max: { type: 'number', description: 'Maximum number of products to fetch' }
+          },
+          required: ['urls']
+        }
       },
-      { 
-        type: 'function', 
-        name: 'rank_and_dedup', 
-        input_schema: { 
-          type: 'object', 
-          properties: { 
-            cards: { type: 'array', items: { type: 'object' } }, 
-            intent: { type: 'object' }, 
-            take: { type: 'number' } 
-          }, 
-          required: ['cards'] 
-        } 
+      {
+        type: 'function',
+        name: 'rank_and_dedup',
+        input_schema: {
+          type: 'object',
+          properties: {
+            cards: { type: 'array', items: { type: 'object' }, description: 'Product cards to rank and deduplicate' },
+            intent: { type: 'object', description: 'User intent for ranking' },
+            take: { type: 'number', description: 'Number of top results to return' }
+          },
+          required: ['cards']
+        }
       },
-      { 
-        type: 'function', 
-        name: 'decorate_redirects', 
-        input_schema: { 
-          type: 'object', 
-          properties: { 
-            cards: { type: 'array', items: { type: 'object' } } 
-          }, 
-          required: ['cards'] 
-        } 
+      {
+        type: 'function',
+        name: 'decorate_redirects',
+        input_schema: {
+          type: 'object',
+          properties: {
+            cards: { type: 'array', items: { type: 'object' }, description: 'Product cards to add redirect URLs to' }
+          },
+          required: ['cards']
+        }
       },
-      { 
-        type: 'function', 
-        name: 'log_event', 
-        input_schema: { 
-          type: 'object', 
-          properties: { 
-            type: { type: 'string' }, 
-            payload: { type: 'object' } 
-          }, 
-          required: ['type','payload'] 
-        } 
+      {
+        type: 'function',
+        name: 'log_event',
+        input_schema: {
+          type: 'object',
+          properties: {
+            type: { type: 'string', description: 'Event type to log' },
+            payload: { type: 'object', description: 'Event data to log' }
+          },
+          required: ['type', 'payload']
+        }
       }
     ]
   };
+
+      const endpoint = process.env.AOAI_ENDPOINT?.replace(/\/$/, ''); // Remove trailing slash
+      const url = `${endpoint}/openai/responses?api-version=${process.env.AOAI_API_VERSION}`;
   
-  const url = `${process.env.AOAI_ENDPOINT}/openai/responses?api-version=${process.env.AOAI_API_VERSION}`;
-  console.log('Making Azure OpenAI request to:', url);
-  console.log('Request body:', JSON.stringify(body, null, 2));
-  
-  const resp = await fetch(url, { 
-    method: 'POST', 
-    headers: { 
-      'Content-Type': 'application/json', 
-      'api-key': process.env.AOAI_API_KEY || '' 
-    }, 
-    body: JSON.stringify(body) 
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': process.env.AOAI_API_KEY || ''
+    },
+    body: JSON.stringify(body)
   });
-  
-  console.log('Azure OpenAI response status:', resp.status);
-  
+
   if (!resp.ok) {
-    const errorText = await resp.text();
-    console.error('Azure OpenAI error:', errorText);
-    throw new Error('AOAI error: ' + errorText);
+    throw new Error('AOAI error: ' + (await resp.text()));
   }
+
+  const response = await resp.json();
   
-  const result = await resp.json();
-  console.log('Azure OpenAI response:', JSON.stringify(result, null, 2));
-  return result;
+      // Process tool calls
+      let finalProducts: any[] = [];
+      if (response.output && response.output.length > 0) {
+        for (const output of response.output) {
+          if (output.type === 'function_call' && output.status === 'completed') {
+            const toolName = output.name;
+            const toolParams = JSON.parse(output.arguments || '{}');
+            
+            const tools = { site_search, fetch_product_cards, rank_and_dedup, decorate_redirects, log_event };
+            
+            if (tools[toolName as keyof typeof tools]) {
+              try {
+                const result = await tools[toolName as keyof typeof tools](toolParams);
+                console.log(`Tool ${toolName} result:`, result);
+                
+                // If this is the final decorate_redirects call, extract products
+                if (toolName === 'decorate_redirects' && result && 'cards' in result) {
+                  finalProducts = (result as any).cards;
+                }
+              } catch (error) {
+                console.error(`Tool ${toolName} error:`, error);
+              }
+            }
+          }
+        }
+      }
+      
+      // If we got products from tools, return them
+      if (finalProducts.length > 0) {
+        return {
+          ...response,
+          products: finalProducts,
+          message: 'I found some products for you!',
+          source: 'azure_openai_tools'
+        };
+      }
+
+  return response;
 }
